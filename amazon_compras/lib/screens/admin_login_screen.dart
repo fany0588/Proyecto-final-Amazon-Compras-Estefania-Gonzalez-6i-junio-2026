@@ -16,6 +16,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
   
   bool obscureText = true;
   bool _isLoading = false;
+  
 
   @override
   void dispose() {

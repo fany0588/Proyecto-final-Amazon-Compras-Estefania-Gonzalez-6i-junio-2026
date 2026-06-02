@@ -103,6 +103,7 @@ class _HomeContentState extends State<HomeContent> {
   late final PageController _carouselController;
   late final TextEditingController _searchController;
   late Timer _carouselTimer;
+  late ScrollController _scrollController;
   int _activeBannerIndex = 0;
 
   final List<String> _banners = const [
@@ -112,7 +113,7 @@ class _HomeContentState extends State<HomeContent> {
   ];
 
   final List<QuickCategory> _quickCategories = [
-    QuickCategory(name: "Deportes", icon: Icons.sports_soccer, color: Color(0xFFE6D3B3), category: "Deportes"),
+    QuickCategory(name: "Deportes", icon: Icons.sports_soccer, color: const Color(0xFFE6D3B3), category: "Deportes"),
     QuickCategory(name: "Regalos", icon: Icons.card_giftcard, color: Colors.red.shade100, category: "Regalos"),
     QuickCategory(name: "Ofertas", icon: Icons.local_offer, color: Colors.orange.shade100, category: "Ofertas"),
     QuickCategory(name: "Mascotas", icon: Icons.pets, color: Colors.brown.shade100, category: "Mascotas"),
@@ -128,6 +129,7 @@ class _HomeContentState extends State<HomeContent> {
     _initializeServices();
     _startCarouselTimer();
     _loadInitialData();
+    _scrollController = ScrollController();
   }
 
   void _initializeServices() {
@@ -158,6 +160,7 @@ class _HomeContentState extends State<HomeContent> {
     _carouselTimer.cancel();
     _carouselController.dispose();
     _searchController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -174,6 +177,7 @@ class _HomeContentState extends State<HomeContent> {
               child: RefreshIndicator(
                 onRefresh: () => context.read<AddressProvider>().loadAddresses(),
                 child: SingleChildScrollView(
+                  controller: _scrollController,
                   physics: const AlwaysScrollableScrollPhysics(),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -340,45 +344,9 @@ class _HomeContentState extends State<HomeContent> {
 
   // 🖼️ Carrusel de Banners
   Widget _buildCarousel() {
-    return SizedBox(
-      height: AppSizes.bannerHeight,
-      child: Stack(
-        alignment: Alignment.bottomCenter,
-        children: [
-          PageView.builder(
-            controller: _carouselController,
-            itemCount: _banners.length,
-            onPageChanged: (index) => setState(() => _activeBannerIndex = index),
-            itemBuilder: (context, index) => Image.network(
-              _banners[index],
-              fit: BoxFit.cover,
-              width: double.infinity,
-            ),
-          ),
-          Positioned(
-            bottom: 12,
-            child: _buildCarouselIndicators(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCarouselIndicators() {
-    return Row(
-      children: List.generate(
-        _banners.length,
-        (index) => AnimatedContainer(
-          duration: AppDurations.carouselAnimation,
-          margin: const EdgeInsets.symmetric(horizontal: 4),
-          width: _activeBannerIndex == index ? 16 : 8,
-          height: 8,
-          decoration: BoxDecoration(
-            color: _activeBannerIndex == index ? AppColors.secondary : Colors.white,
-            borderRadius: BorderRadius.circular(4),
-          ),
-        ),
-      ),
+    return OptimizedCarousel(
+      banners: _banners,
+      controller: _carouselController,
     );
   }
 
@@ -663,6 +631,116 @@ class _EmptyProductsMessage extends StatelessWidget {
         "Sin productos para mostrar.",
         textAlign: TextAlign.center,
         style: TextStyle(color: Colors.grey),
+      ),
+    );
+  }
+}
+
+// ======================== CARRUSEL OPTIMIZADO ========================
+class OptimizedCarousel extends StatefulWidget {
+  final List<String> banners;
+  final PageController controller;
+
+  const OptimizedCarousel({
+    super.key,
+    required this.banners,
+    required this.controller,
+  });
+
+  @override
+  State<OptimizedCarousel> createState() => _OptimizedCarouselState();
+}
+
+class _OptimizedCarouselState extends State<OptimizedCarousel> 
+    with AutomaticKeepAliveClientMixin {
+  int _activeBannerIndex = 0;
+  late Timer _carouselTimer;
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    _startCarouselTimer();
+  }
+
+  void _startCarouselTimer() {
+    _carouselTimer = Timer.periodic(AppDurations.carouselInterval, (timer) {
+      if (widget.controller.hasClients && mounted) {
+        final nextPage = (_activeBannerIndex + 1) % widget.banners.length;
+        widget.controller.animateToPage(
+          nextPage,
+          duration: AppDurations.carouselAnimation,
+          curve: Curves.easeInOut,
+        );
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _carouselTimer.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    
+    return SizedBox(
+      height: AppSizes.bannerHeight,
+      child: Stack(
+        alignment: Alignment.bottomCenter,
+        children: [
+          PageView.builder(
+            controller: widget.controller,
+            itemCount: widget.banners.length,
+            onPageChanged: (index) {
+              setState(() {
+                _activeBannerIndex = index;
+              });
+            },
+            itemBuilder: (context, index) => Image.network(
+              widget.banners[index],
+              fit: BoxFit.cover,
+              width: double.infinity,
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) return child;
+                return Container(
+                  color: Colors.grey[300],
+                  child: const Center(
+                    child: CircularProgressIndicator(),
+                  ),
+                );
+              },
+            ),
+          ),
+          Positioned(
+            bottom: 12,
+            child: _buildCarouselIndicators(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCarouselIndicators() {
+    return Row(
+      children: List.generate(
+        widget.banners.length,
+        (index) => AnimatedContainer(
+          duration: AppDurations.carouselAnimation,
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          width: _activeBannerIndex == index ? 16 : 8,
+          height: 8,
+          decoration: BoxDecoration(
+            color: _activeBannerIndex == index 
+                ? AppColors.secondary 
+                : Colors.white.withOpacity(0.7),
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
       ),
     );
   }

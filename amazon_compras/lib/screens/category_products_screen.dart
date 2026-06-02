@@ -21,18 +21,23 @@ class CategoryProductsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final ProductService service = ProductService();
     final title = subcategory.isNotEmpty ? "$category - $subcategory" : category;
-    final db = FirebaseFirestore.instance;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F1E8),
       appBar: AppBar(
         title: Text(title),
         backgroundColor: const Color(0xFF1F3A5F),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            Navigator.pop(context); // 👈 Esto debería volver a CategoriesScreen
+          },
+        ),
       ),
-      bottomNavigationBar: const PremiumBottomNavBar(currentIndex: 1),
+      // ❌ ELIMINA ESTA LÍNEA - No debe tener bottomNavigationBar
+      // bottomNavigationBar: const PremiumBottomNavBar(currentIndex: 1),
       body: Column(
         children: [
-        // Lista de productos
           Expanded(
             child: StreamBuilder<List<ProductModel>>(
               stream: service.getProductsByCategory(category, subcategory: subcategory),
@@ -196,49 +201,6 @@ class CategoryProductsScreen extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildDefaultBanner(String title) {
-    return Container(
-      height: 180,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            const Color(0xFF1F3A5F),
-            const Color(0xFF1F3A5F).withOpacity(0.8),
-          ],
-        ),
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(20),
-          bottomRight: Radius.circular(20),
-        ),
-      ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.category,
-              size: 60,
-              color: Colors.white70,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
       ),
     );
   }
